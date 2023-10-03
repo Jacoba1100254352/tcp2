@@ -163,54 +163,50 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     if (verbose_flag)
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
-
-    size_t bufferSize = TCP_CLIENT_MAX_INPUT_SIZE;
-    char *buf = malloc(bufferSize);
-    if (!buf) {
-        log_error("Memory allocation failed");
-        return EXIT_FAILURE;
-    }
+    // Variable initialization
+    char buf[TCP_CLIENT_MAX_INPUT_SIZE*3];
 
     ssize_t bytesReadInCurrentIteration = 0;
     ssize_t totalBytesReceived = 0;
 
+    // Fill the buffer with info from the server
     do {
-        // Check if we need to expand the buffer
-        if (totalBytesReceived == bufferSize) {
-            bufferSize *= 2; // Double the buffer size
-            char *newBuf = realloc(buf, bufferSize);
-            if (!newBuf) {
-                log_error("Memory reallocation failed");
-                free(buf);
-                return EXIT_FAILURE;
-            }
-            buf = newBuf;
-        }
-
-        bytesReadInCurrentIteration = recv(sockfd, buf + totalBytesReceived, bufferSize - totalBytesReceived, 0);
-        if (bytesReadInCurrentIteration > 0) {
-            totalBytesReceived += bytesReadInCurrentIteration;
-        }
-
         if (verbose_flag) {
+            char *dummyBuf = buf;
+            dummyBuf[strlen(dummyBuf)] = '\0';
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+        }
+        bytesReadInCurrentIteration = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
+        if (verbose_flag) {
+            char *dummyBuf = buf;
+            dummyBuf[strlen(dummyBuf)] = '\0';
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+        }
+        if (bytesReadInCurrentIteration > 0) totalBytesReceived += bytesReadInCurrentIteration;
+        if (verbose_flag)
             log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
+        if (verbose_flag) {
+            char *dummyBuf = buf;
+            dummyBuf[strlen(dummyBuf)] = '\0';
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
         }
     } while (bytesReadInCurrentIteration > 0);
 
-    buf[totalBytesReceived] = '\0'; // Null terminate the received data
+    // Update buffer with end symbol
+    buf[totalBytesReceived] = '\0';
 
-    int result = handle_response(buf);
+    // Inform of bytes read
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
 
-    free(buf); // Don't forget to free the buffer after you're done
-
-    if (result != 0) {
+    // Handle the response using the provided callback function
+    if (handle_response(buf) != 0) {
         log_error("Handling response failed");
         return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
 }
-
 
 
 // Closes the given socket.
