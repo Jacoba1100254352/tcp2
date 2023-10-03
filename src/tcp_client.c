@@ -33,7 +33,7 @@ int tcp_client_parse_arguments(int argc, char *argv[], Config *config) {
             {"host",    required_argument, 0, 'h'},
             {"port",    required_argument, 0, 'p'},
             {"verbose", no_argument,       0, 'v'},
-            {0,         0,                 0, 0}
+            {0, 0,                         0, 0}
     };
 
     static char *validActions[NUM_VALID_ACTIONS] = {
@@ -112,7 +112,18 @@ int tcp_client_connect(Config config) {
     memset(&server_address, 0, sizeof(server_address));
     server_address.sin_family = AF_INET;
     memcpy(&server_address.sin_addr.s_addr, server->h_addr, server->h_length);
-    server_address.sin_port = htons(atoi(config.port));
+
+    char *endptr; // Pointer to the end of the parsed string
+    long port = strtol(config.port, &endptr, 10); // Convert string to long integer
+
+    // Check if the entire string was parsed
+    if (*endptr != '\0' || port <= 0 || port > 65535) {
+        log_error("Invalid port number provided. Port must be a number between 1 and 65535.");
+        return TCP_CLIENT_BAD_SOCKET; // or some other error handling
+    }
+
+    server_address.sin_port = htons((uint16_t) port); // Convert to appropriate type and byte order
+
 
     if (connect(sockfd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
         log_log(LOG_ERROR, __FILE__, __LINE__, "Could not connect");
@@ -160,7 +171,7 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     // Variable initialization
     char buf[TCP_CLIENT_MAX_INPUT_SIZE];
-    int bytesReceived = 0;
+    ssize_t bytesReceived = 0;
 
     // Fill the buffer with info from the server
     do {
@@ -202,30 +213,60 @@ FILE *tcp_client_open_file(char *file_name) {
     return fileData;
 }
 
+// Check if the provided action is valid
+static int is_valid_action(const char *action) {
+    static char *validActions[NUM_VALID_ACTIONS] = {
+            "uppercase",
+            "lowercase",
+            "reverse",
+            "shuffle",
+            "random"
+    };
+
+    for (int i = 0; i < NUM_VALID_ACTIONS; i++)
+        if (strcmp(action, validActions[i]) == 0)
+            return EXIT_SUCCESS; // True: Valid action
+
+    return EXIT_FAILURE; // False: Invalid action
+}
+
 // Gets the next line of a file, filling in action and message.
 int tcp_client_get_line(FILE *fd, char **action, char **message) {
+    if (fd == NULL || action == NULL || message == NULL)
+        return EXIT_FAILURE;
+
     char *line = NULL;
     size_t len = 0;
-    ssize_t read = getline(&line, &len, fd);
-    if (read == -1) {
+
+    if (getline(&line, &len, fd) == -1) {
         free(line);
-        return -1;
+        return EXIT_FAILURE;
     }
 
-    // Assume action and message are separated by a space
-    char *space = strchr(line, ' ');
-    if (space == NULL) {
+    *action = strtok(line, " ");
+
+    if (is_valid_action(*action) == EXIT_FAILURE) {
+        log_error("Invalid Action provided: %s", *action);
         free(line);
-        return -1;
+        return EXIT_FAILURE;
     }
 
-    *space = '\0';
-    *action = strdup(line);
-    *message = strdup(space + 1);
+    *message = strtok(NULL, "\n");
+
+    // Skip malformed lines
+    if (*action == NULL || *message == NULL) {
+        free(line);
+        return EXIT_FAILURE;
+    }
+
+    // Duplicate the strings since we will free the line
+    *action = strdup(*action);
+    *message = strdup(*message);
 
     free(line);
-    return read;
+    return EXIT_SUCCESS;
 }
+
 
 // Closes a file.
 int tcp_client_close_file(FILE *fd) {

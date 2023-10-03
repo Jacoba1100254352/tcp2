@@ -45,43 +45,6 @@ int handle_response(char *response) {
     return EXIT_SUCCESS;
 }
 
-
-int process_file(int sockfd, Config *config) {
-    FILE *fp;
-    if (strcmp(config->file, "-") == 0) {
-        fp = stdin;
-    } else {
-        fp = tcp_client_open_file(config->file);
-        if (fp == NULL) {
-            log_error("Could not open file: %s", config->file);
-            return EXIT_FAILURE;
-        }
-    }
-
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read;
-    while ((read = getline(&line, &len, fp)) != -1) {
-        char *action = strtok(line, " ");
-        char *message = strtok(NULL, "\n");
-
-        // Skip malformed lines
-        if (action == NULL || message == NULL) continue;
-
-        // Send Request
-        if (tcp_client_send_request(sockfd, action, message) != EXIT_SUCCESS) {
-            log_error("Failed to send request for action: %s, message: %s", action, message);
-            free(line);
-            if (fp != stdin) tcp_client_close_file(fp);
-            return EXIT_FAILURE;
-        }
-    }
-
-    free(line);
-    if (fp != stdin) tcp_client_close_file(fp);
-    return EXIT_SUCCESS;
-}
-
 int main(int argc, char *argv[]) {
     Config config = {
             .host = TCP_CLIENT_DEFAULT_HOST,
@@ -98,11 +61,34 @@ int main(int argc, char *argv[]) {
     if (verbose_flag)
         log_log(LOG_INFO, __FILE__, __LINE__, "Connected to %s:%s", config.host, config.port);
 
-    // Process the provided file or stdin and send requests
-    if (process_file(sockfd, &config) != EXIT_SUCCESS) {
-        // Handle Error
-        tcp_client_close(sockfd);
-        return EXIT_FAILURE;
+    // Open the specified file or use stdin
+    FILE *fp;
+    if (strcmp(config.file, "-") == 0) {
+        fp = stdin;
+    } else {
+        fp = tcp_client_open_file(config.file);
+        if (!fp) {
+            tcp_client_close(sockfd);
+            return EXIT_FAILURE;
+        }
+    }
+
+    char *action = NULL;
+    char *message = NULL;
+    while (tcp_client_get_line(fp, &action, &message) == EXIT_SUCCESS) {
+        if (tcp_client_send_request(sockfd, action, message) != EXIT_SUCCESS) {
+            free(action);
+            free(message);
+            if (fp != stdin) tcp_client_close_file(fp);
+            tcp_client_close(sockfd);
+            return EXIT_FAILURE;
+        }
+        free(action);
+        free(message);
+    }
+
+    if (fp != stdin) {
+        tcp_client_close_file(fp);
     }
 
     if (tcp_client_receive_response(sockfd, handle_response)) {
@@ -113,3 +99,4 @@ int main(int argc, char *argv[]) {
     if (tcp_client_close(sockfd)) exit(EXIT_FAILURE);
     exit(EXIT_SUCCESS);
 }
+
