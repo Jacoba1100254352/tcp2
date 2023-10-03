@@ -28,23 +28,13 @@ int handle_response(char *response) {
         // Extract the length of the response
         char *endptr;
         long len = strtol(ptr, &endptr, 10);
-
-        // Skip spaces
-        while (*endptr && isspace(*endptr)) {
-            endptr++;
-        }
-        response = endptr;
-
-        if (verbose_flag)
-            log_log(LOG_DEBUG, __FILE__, __LINE__, "Response received: %s", response);
-
-        if (endptr == ptr || len < 0) { // Check if there are no digits or the length is negative
+        if (endptr == ptr || len <= 0) { // Check if there are no digits or the length is negative
             fprintf(stderr, "Malformed response received: %s\n", ptr);
             return EXIT_FAILURE;
         }
 
-        ptr = endptr;  // Now ptr points to the start of the actual message
-
+        // Move the pointer to the start of the response message
+        ptr = endptr;
         if (*ptr == '\0' || (size_t) len > strlen(ptr)) {
             fprintf(stderr, "Incomplete response received: %s\n", ptr);
             return EXIT_FAILURE;
@@ -59,7 +49,6 @@ int handle_response(char *response) {
 
     return EXIT_SUCCESS;
 }
-
 
 int main(int argc, char *argv[]) {
     printf("%s\n%s\n", argv[0], argv[1]);
