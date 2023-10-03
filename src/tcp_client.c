@@ -87,7 +87,7 @@ int tcp_client_connect(Config config) {
     struct hostent *server;
 
     if (verbose_flag)
-        log_log(LOG_INFO, __FILE__, __LINE__, "Connecting to %s:%s", config.host, config.port);
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Connecting to %s:%s", config.host, config.port);
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {

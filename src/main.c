@@ -19,6 +19,10 @@ static void printHelpOption(char *argv[]) {
 
 int handle_response(char *response) {
     char *ptr = response;
+
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Response received: %s", response);
+    
     while (*ptr != '\0') { // Traverse until the end of the string
         // Extract the length of the response
         char *endptr;
@@ -59,7 +63,7 @@ int main(int argc, char *argv[]) {
     if (sockfd == TCP_CLIENT_BAD_SOCKET) exit(EXIT_FAILURE);
 
     if (verbose_flag)
-        log_log(LOG_INFO, __FILE__, __LINE__, "Connected to %s:%s", config.host, config.port);
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Connected to %s:%s", config.host, config.port);
 
     // Open the specified file or use stdin
     FILE *fp;
