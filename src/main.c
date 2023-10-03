@@ -30,7 +30,12 @@ int handle_response(char *response) {
         long len = strtol(ptr, &endptr, 10);
 
         // Skip spaces
-        while (*endptr && isspace(*endptr) && ++endptr);
+        while (*endptr && isspace(*endptr)) {
+            endptr++;
+        }
+
+        if (verbose_flag)
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Response received: %s", response);
 
         if (endptr == ptr || len < 0) { // Check if there are no digits or the length is negative
             fprintf(stderr, "Malformed response received: %s\n", ptr);
