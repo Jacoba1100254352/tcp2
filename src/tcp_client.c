@@ -193,6 +193,10 @@ int tcp_client_close(int sockfd) {
         log_error("Could not close socket");
         return EXIT_FAILURE;
     }
+
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Client socked closed");
+
     return EXIT_SUCCESS;
 }
 
@@ -201,6 +205,8 @@ FILE *tcp_client_open_file(char *file_name) {
     FILE *fileData = fopen(file_name, "r");
     if (fileData == NULL)
         log_error("Could not open file");
+    else if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "File Opened");
 
     return fileData;
 }
@@ -266,5 +272,9 @@ int tcp_client_close_file(FILE *fd) {
         log_error("Could not close file");
         return EXIT_FAILURE;
     }
+
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "File Closed");
+
     return EXIT_SUCCESS;
 }

@@ -22,7 +22,7 @@ int handle_response(char *response) {
 
     if (verbose_flag)
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Response received: %s", response);
-    
+
     while (*ptr != '\0') { // Traverse until the end of the string
         // Extract the length of the response
         char *endptr;
@@ -34,13 +34,13 @@ int handle_response(char *response) {
 
         // Move the pointer to the start of the response message
         ptr = endptr;
-        if (*ptr == '\0' || (size_t)len > strlen(ptr)) {
+        if (*ptr == '\0' || (size_t) len > strlen(ptr)) {
             fprintf(stderr, "Incomplete response received: %s\n", ptr);
             return EXIT_FAILURE;
         }
 
         // Print the response message
-        printf("%.*s\n", (int)len, ptr); // Print len characters from ptr
+        printf("%.*s\n", (int) len, ptr); // Print len characters from ptr
 
         // Move the pointer to the next response
         ptr += len;
@@ -65,16 +65,14 @@ int main(int argc, char *argv[]) {
     if (verbose_flag)
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Connected to %s:%s", config.host, config.port);
 
+
     // Open the specified file or use stdin
     FILE *fp;
-    if (strcmp(config.file, "-") == 0) {
+    if (strcmp(config.file, "-") == 0)
         fp = stdin;
-    } else {
-        fp = tcp_client_open_file(config.file);
-        if (!fp) {
-            tcp_client_close(sockfd);
-            return EXIT_FAILURE;
-        }
+    else if (!(fp = tcp_client_open_file(config.file))) {
+        tcp_client_close(sockfd);
+        return EXIT_FAILURE;
     }
 
     char *action = NULL;
@@ -91,16 +89,9 @@ int main(int argc, char *argv[]) {
         free(message);
     }
 
-    if (fp != stdin) {
+    if (fp != stdin)
         tcp_client_close_file(fp);
-    }
 
-    if (tcp_client_receive_response(sockfd, handle_response)) {
-        tcp_client_close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-
-    if (tcp_client_close(sockfd)) exit(EXIT_FAILURE);
-    exit(EXIT_SUCCESS);
+    exit((tcp_client_receive_response(sockfd, handle_response) || tcp_client_close(sockfd)) ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 
