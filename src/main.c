@@ -89,6 +89,9 @@ int main(int argc, char *argv[]) {
         free(message);
     }
 
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
+
     if (fp != stdin)
         tcp_client_close_file(fp);
 
