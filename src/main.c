@@ -29,23 +29,8 @@ int handle_response(char *response) {
     if (verbose_flag)
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Response received: %s", ptr);
 
-    // Extract the length of the response
-    char *endptr;
-    long len = strtol(ptr, &endptr, 10);
-    if (endptr == ptr || len <= 0) { // Check if there are no digits or the length is negative
-        fprintf(stderr, "Malformed response received: %s\n", ptr);
-        return EXIT_FAILURE;
-    }
-
-    // Move the pointer to the start of the response message
-    ptr = endptr;
-    if (*ptr == '\0' || (size_t) len > strlen(ptr)) {
-        fprintf(stderr, "Incomplete response received: %s\n", ptr);
-        return EXIT_FAILURE;
-    }
-
-    // Print the response message
-    printf("%.*s\n", (int) len, ptr); // Print len characters from ptr
+    // Instead of expecting a length prefix, just print the entire response
+    printf("%s\n", ptr);
 
     return EXIT_SUCCESS;
 }
