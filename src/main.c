@@ -28,15 +28,15 @@ int handle_response(char *response) {
         // Extract the length of the response
         char *endptr;
         long len = strtol(ptr, &endptr, 10);
+
+        // Skip spaces
+        while (*endptr && isspace(*endptr) && ++endptr);
+
         if (endptr == ptr || len < 0) { // Check if there are no digits or the length is negative
             fprintf(stderr, "Malformed response received: %s\n", ptr);
             return EXIT_FAILURE;
         }
 
-        // Skip spaces
-        while (*endptr && isspace(*endptr)) {
-            endptr++;
-        }
         ptr = endptr;  // Now ptr points to the start of the actual message
 
         if (*ptr == '\0' || (size_t) len > strlen(ptr)) {
