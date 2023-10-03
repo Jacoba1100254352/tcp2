@@ -195,7 +195,7 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
         if (verbose_flag) {
             log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
         }
-    } while (bytesReadInCurrentIteration > 0 && bytesReadInCurrentIteration != -1);
+    } while (bytesReadInCurrentIteration > 0);
 
     buf[totalBytesReceived] = '\0'; // Null terminate the received data
 
@@ -210,6 +210,7 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
 
     return EXIT_SUCCESS;
 }
+
 
 
 // Closes the given socket.
