@@ -33,6 +33,7 @@ int handle_response(char *response) {
         while (*endptr && isspace(*endptr)) {
             endptr++;
         }
+        response = endptr;
 
         if (verbose_flag)
             log_log(LOG_DEBUG, __FILE__, __LINE__, "Response received: %s", response);
