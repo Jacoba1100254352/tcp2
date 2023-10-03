@@ -161,48 +161,30 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 
 // Receives the response from the server. The caller must provide a callback function to handle the response.
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
-    char buf[TCP_CLIENT_MAX_INPUT_SIZE];
-    ssize_t totalBytesReceived = 0;
+    char buffer[TCP_CLIENT_MAX_INPUT_SIZE] = {0}; // Buffer to store the received data
+    ssize_t totalBytesReceived = 0; // Total bytes received so far
+    ssize_t bytesReceived; // Bytes received in one call to recv
 
+    // Continue receiving data until handle_response indicates that we have received a complete response
     while (1) {
-        // Receive data
-        ssize_t bytesReadInCurrentIteration = recv(sockfd, buf + totalBytesReceived, sizeof(buf) - totalBytesReceived - 1, 0);
-        if (bytesReadInCurrentIteration <= 0) {
+        bytesReceived = recv(sockfd, buffer + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived, 0);
+        if (bytesReceived <= 0) {
+            // Error or connection closed by the server
+            if (bytesReceived < 0) {
+                log_error("Receive failed");
+            }
             break;
         }
-        totalBytesReceived += bytesReadInCurrentIteration;
+        totalBytesReceived += bytesReceived;
+        buffer[totalBytesReceived] = '\0'; // Null-terminate the received data
 
-        // Process any complete messages in the buffer
-        char *ptr = buf;
-        while (ptr - buf < totalBytesReceived) {
-            char *endptr;
-            long len = strtol(ptr, &endptr, 10);
-            if (endptr == ptr || len <= 0) {
-                break;  // Malformed message, break out and wait for more data
-            }
-
-            // Check if the entire message is in the buffer
-            if (endptr + len > buf + totalBytesReceived) {
-                break;  // Not a complete message, break out and wait for more data
-            }
-
-            // Process the message
-            if (handle_response(endptr) != 0) {
-                log_error("Handling response failed");
-                return EXIT_FAILURE;
-            }
-
-            ptr = endptr + len;  // Move to the next message in the buffer
-        }
-
-        // If we processed some messages, shift the remaining data to the front of the buffer
-        if (ptr != buf) {
-            totalBytesReceived -= (ptr - buf);
-            memmove(buf, ptr, totalBytesReceived);
+        if (handle_response(buffer) == EXIT_SUCCESS) {
+            // Complete response received and handled, break out of the loop
+            break;
         }
     }
 
-    return EXIT_SUCCESS;
+    return (bytesReceived < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 
@@ -284,9 +266,6 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
     *message = strdup(*message);
 
     free(line);
-
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Action: %s, Message: %s", *action, *message);
 
     return EXIT_SUCCESS;
 }

@@ -28,7 +28,7 @@ int handle_response(char *response) {
         // Extract the length of the response
         char *endptr;
         long len = strtol(ptr, &endptr, 10);
-        if (endptr == ptr || len <= 0) { // Check if there are no digits or the length is negative
+        if (endptr == ptr || len < 0) { // Check if there are no digits or the length is negative
             fprintf(stderr, "Malformed response received: %s\n", ptr);
             return EXIT_FAILURE;
         }
