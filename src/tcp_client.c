@@ -36,14 +36,6 @@ int tcp_client_parse_arguments(int argc, char *argv[], Config *config) {
             {0, 0,                         0, 0}
     };
 
-    static char *validActions[NUM_VALID_ACTIONS] = {
-            "uppercase",
-            "lowercase",
-            "reverse",
-            "shuffle",
-            "random"
-    };
-
     // Loop over all the options
     int long_index = 0;
     while ((opt = getopt_long(argc, argv, "h:p:v", long_options, &long_index)) != -1) {
