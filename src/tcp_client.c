@@ -160,6 +160,7 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 }
 
 // Receives the response from the server. The caller must provide a callback function to handle the response.
+
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     if (verbose_flag)
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
@@ -167,10 +168,12 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     char buf[TCP_CLIENT_MAX_INPUT_SIZE*3];
 
     ssize_t bytesReadInCurrentIteration = 0;
-    ssize_t totalBytesReceived = 0;
 
+    ssize_t totalBytesReceived = 0;
     // Fill the buffer with info from the server
     do {
+        bytesReadInCurrentIteration = 0;
+
         if (verbose_flag) {
             char *dummyBuf = buf;
             dummyBuf[strlen(dummyBuf)] = '\0';
