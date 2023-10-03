@@ -160,53 +160,51 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 }
 
 // Receives the response from the server. The caller must provide a callback function to handle the response.
-#define TCP_CLIENT_MAX_INPUT_SIZE 1024
-
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     char buf[TCP_CLIENT_MAX_INPUT_SIZE*3] = {0};
     ssize_t totalBytesReceived = 0;
 
     while (1) {
-        // Read the length of the next message
-        char *endptr;
-        long len = strtol(buf, &endptr, 10);
-        if (endptr == buf || len < 0) { // If there are no digits or the length is negative, read more data
-            ssize_t bytesRead = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
-            if (bytesRead <= 0) {
-                // Connection closed or error occurred
-                break;
+        // Receive data
+        ssize_t bytesReadInCurrentIteration = recv(sockfd, buf + totalBytesReceived, sizeof(buf) - totalBytesReceived - 1, 0);
+        if (bytesReadInCurrentIteration <= 0) {
+            break;
+        }
+        totalBytesReceived += bytesReadInCurrentIteration;
+
+        // Process any complete messages in the buffer
+        char *ptr = buf;
+        while (ptr - buf < totalBytesReceived) {
+            char *endptr;
+            long len = strtol(ptr, &endptr, 10);
+            if (endptr == ptr || len <= 0) {
+                break;  // Malformed message, break out and wait for more data
             }
-            totalBytesReceived += bytesRead;
-            continue;
-        }
 
-        // Check if we have received the entire message
-        if (strlen(endptr) < len) {
-            ssize_t bytesRead = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
-            if (bytesRead <= 0) {
-                // Connection closed or error occurred
-                break;
+            // Check if the entire message is in the buffer
+            if (endptr + len > buf + totalBytesReceived) {
+                break;  // Not a complete message, break out and wait for more data
             }
-            totalBytesReceived += bytesRead;
-            continue;
+
+            // Process the message
+            if (handle_response(endptr) != 0) {
+                log_error("Handling response failed");
+                return EXIT_FAILURE;
+            }
+
+            ptr = endptr + len;  // Move to the next message in the buffer
         }
 
-        // We have the entire message, handle it
-        char message[len + 1];
-        strncpy(message, endptr, len);
-        message[len] = '\0';
-        if (handle_response(message) != 0) {
-            log_error("Handling response failed");
-            return EXIT_FAILURE;
+        // If we processed some messages, shift the remaining data to the front of the buffer
+        if (ptr != buf) {
+            totalBytesReceived -= (ptr - buf);
+            memmove(buf, ptr, totalBytesReceived);
         }
-
-        // Move the remaining data to the start of the buffer
-        memmove(buf, endptr + len, totalBytesReceived - (endptr + len - buf));
-        totalBytesReceived -= (endptr + len - buf);
     }
 
     return EXIT_SUCCESS;
 }
+
 
 
 // Closes the given socket.
