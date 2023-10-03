@@ -169,8 +169,12 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
 
     // Fill the buffer with info from the server
     do {
+        if (verbose_flag)
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
         bytesReceived = recv(sockfd, buf + bytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - bytesReceived - 1, 0);
         if (bytesReceived > 0) bytesReceived += bytesReceived;
+        if (verbose_flag)
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
     } while (bytesReceived > 0);
 
     // Update buffer with end symbol
