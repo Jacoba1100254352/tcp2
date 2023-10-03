@@ -1,5 +1,6 @@
 #include "tcp_client.h"
 #include "log.h"
+#include <ctype.h>
 
 int verbose_flag = 0;  // Global variable for the verbose flag
 
@@ -32,8 +33,12 @@ int handle_response(char *response) {
             return EXIT_FAILURE;
         }
 
-        // Move the pointer to the start of the response message
-        ptr = endptr;
+        // Skip spaces
+        while (*endptr && isspace(*endptr)) {
+            endptr++;
+        }
+        ptr = endptr;  // Now ptr points to the start of the actual message
+
         if (*ptr == '\0' || (size_t) len > strlen(ptr)) {
             fprintf(stderr, "Incomplete response received: %s\n", ptr);
             return EXIT_FAILURE;
@@ -48,6 +53,7 @@ int handle_response(char *response) {
 
     return EXIT_SUCCESS;
 }
+
 
 int main(int argc, char *argv[]) {
     printf("%s\n%s\n", argv[0], argv[1]);
