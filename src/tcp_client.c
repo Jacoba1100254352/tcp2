@@ -202,6 +202,9 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
         }
     }
 
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Message Received: %s", buf);
+
     return EXIT_SUCCESS;
 }
 
