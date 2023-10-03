@@ -165,6 +165,7 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
     // Variable initialization
     char buf[TCP_CLIENT_MAX_INPUT_SIZE];
+
     ssize_t bytesReadInCurrentIteration = 0;
     ssize_t totalBytesReceived = 0;
 
