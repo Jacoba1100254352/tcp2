@@ -160,52 +160,49 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 }
 
 // Receives the response from the server. The caller must provide a callback function to handle the response.
+#define TCP_CLIENT_MAX_INPUT_SIZE 1024
 
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
-    // Variable initialization
-    char buf[TCP_CLIENT_MAX_INPUT_SIZE*3];
-
-    ssize_t bytesReadInCurrentIteration = 0;
-
+    char buf[TCP_CLIENT_MAX_INPUT_SIZE*3] = {0};
     ssize_t totalBytesReceived = 0;
-    // Fill the buffer with info from the server
-    do {
-        bytesReadInCurrentIteration = 0;
 
-        if (verbose_flag) {
-            char *dummyBuf = buf;
-            dummyBuf[strlen(dummyBuf)] = '\0';
-            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+    while (1) {
+        // Read the length of the next message
+        char *endptr;
+        long len = strtol(buf, &endptr, 10);
+        if (endptr == buf || len < 0) { // If there are no digits or the length is negative, read more data
+            ssize_t bytesRead = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
+            if (bytesRead <= 0) {
+                // Connection closed or error occurred
+                break;
+            }
+            totalBytesReceived += bytesRead;
+            continue;
         }
-        bytesReadInCurrentIteration = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
-        if (verbose_flag) {
-            char *dummyBuf = buf;
-            dummyBuf[strlen(dummyBuf)] = '\0';
-            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+
+        // Check if we have received the entire message
+        if (strlen(endptr) < len) {
+            ssize_t bytesRead = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
+            if (bytesRead <= 0) {
+                // Connection closed or error occurred
+                break;
+            }
+            totalBytesReceived += bytesRead;
+            continue;
         }
-        if (bytesReadInCurrentIteration > 0) totalBytesReceived += bytesReadInCurrentIteration;
-        if (verbose_flag)
-            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
-        if (verbose_flag) {
-            char *dummyBuf = buf;
-            dummyBuf[strlen(dummyBuf)] = '\0';
-            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+
+        // We have the entire message, handle it
+        char message[len + 1];
+        strncpy(message, endptr, len);
+        message[len] = '\0';
+        if (handle_response(message) != 0) {
+            log_error("Handling response failed");
+            return EXIT_FAILURE;
         }
-    } while (bytesReadInCurrentIteration > 0);
 
-    // Update buffer with end symbol
-    buf[totalBytesReceived] = '\0';
-
-    // Inform of bytes read
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
-
-    // Handle the response using the provided callback function
-    if (handle_response(buf) != 0) {
-        log_error("Handling response failed");
-        return EXIT_FAILURE;
+        // Move the remaining data to the start of the buffer
+        memmove(buf, endptr + len, totalBytesReceived - (endptr + len - buf));
+        totalBytesReceived -= (endptr + len - buf);
     }
 
     return EXIT_SUCCESS;
