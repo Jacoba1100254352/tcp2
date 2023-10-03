@@ -27,10 +27,6 @@ int handle_response(char *response) {
         // Extract the length of the response
         char *endptr;
         long len = strtol(ptr, &endptr, 10);
-        if (endptr == ptr || len < 0) { // Check if there are no digits or the length is negative
-            fprintf(stderr, "Malformed response received: %s\n", ptr);
-            return EXIT_FAILURE;
-        }
 
         // Move the pointer to the start of the response message
         ptr = endptr;
@@ -50,6 +46,7 @@ int handle_response(char *response) {
 }
 
 int main(int argc, char *argv[]) {
+    printf("%s\n%s\n", argv[0], argv[1]);
     Config config = {
             .host = TCP_CLIENT_DEFAULT_HOST,
             .port = TCP_CLIENT_DEFAULT_PORT
