@@ -95,6 +95,9 @@ int main(int argc, char *argv[]) {
     if (fp != stdin)
         tcp_client_close_file(fp);
 
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
+
     exit((tcp_client_receive_response(sockfd, handle_response) || tcp_client_close(sockfd)) ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 

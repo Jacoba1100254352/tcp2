@@ -161,6 +161,8 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 
 // Receives the response from the server. The caller must provide a callback function to handle the response.
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
     // Variable initialization
     char buf[TCP_CLIENT_MAX_INPUT_SIZE];
     ssize_t bytesReceived = 0;
@@ -189,6 +191,9 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
 
 // Closes the given socket.
 int tcp_client_close(int sockfd) {
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
+
     if (close(sockfd) < 0) {
         log_error("Could not close socket");
         return EXIT_FAILURE;
