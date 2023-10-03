@@ -165,27 +165,23 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
     // Variable initialization
     char buf[TCP_CLIENT_MAX_INPUT_SIZE];
-    ssize_t bytesReceived = 0;
+    ssize_t bytesReadInCurrentIteration = 0;
+    ssize_t totalBytesReceived = 0;
 
     // Fill the buffer with info from the server
     do {
-        if (verbose_flag) {
-            char *dummyBuf = buf;
-            dummyBuf[strlen(dummyBuf)] = '\0';
-            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReceived, dummyBuf);
-        }
-        bytesReceived = recv(sockfd, buf + bytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - bytesReceived - 1, 0);
-        if (bytesReceived > 0) bytesReceived += bytesReceived;
+        bytesReadInCurrentIteration = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
+        if (bytesReadInCurrentIteration > 0) totalBytesReceived += bytesReadInCurrentIteration;
         if (verbose_flag)
-            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d", bytesReceived);
-    } while (bytesReceived > 0);
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
+    } while (bytesReadInCurrentIteration > 0);
 
     // Update buffer with end symbol
-    buf[bytesReceived] = '\0';
+    buf[totalBytesReceived] = '\0';
 
     // Inform of bytes read
     if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d", bytesReceived);
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
 
     // Handle the response using the provided callback function
     if (handle_response(buf) != 0) {
@@ -195,6 +191,7 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
 
     return EXIT_SUCCESS;
 }
+
 
 // Closes the given socket.
 int tcp_client_close(int sockfd) {
