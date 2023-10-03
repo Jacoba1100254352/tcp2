@@ -170,10 +170,25 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
 
     // Fill the buffer with info from the server
     do {
+        if (verbose_flag) {
+            char *dummyBuf = buf;
+            dummyBuf[strlen(dummyBuf)] = '\0';
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+        }
         bytesReadInCurrentIteration = recv(sockfd, buf + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived - 1, 0);
+        if (verbose_flag) {
+            char *dummyBuf = buf;
+            dummyBuf[strlen(dummyBuf)] = '\0';
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+        }
         if (bytesReadInCurrentIteration > 0) totalBytesReceived += bytesReadInCurrentIteration;
         if (verbose_flag)
             log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %zd", totalBytesReceived);
+        if (verbose_flag) {
+            char *dummyBuf = buf;
+            dummyBuf[strlen(dummyBuf)] = '\0';
+            log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes read: %d, buffer = %s", bytesReadInCurrentIteration, dummyBuf);
+        }
     } while (bytesReadInCurrentIteration > 0);
 
     // Update buffer with end symbol
