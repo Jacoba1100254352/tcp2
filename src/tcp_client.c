@@ -161,25 +161,25 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 
 // Receives the response from the server. The caller must provide a callback function to handle the response.
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
-    char buffer[TCP_CLIENT_MAX_INPUT_SIZE] = {0}; // Buffer to store the received data
-    ssize_t totalBytesReceived = 0; // Total bytes received so far
-    ssize_t bytesReceived; // Bytes received in one call to recv
+    char buffer[TCP_CLIENT_MAX_INPUT_SIZE] = {0};
+    ssize_t totalBytesReceived = 0;
+    ssize_t bytesReceived;
 
-    // Continue receiving data until handle_response indicates that we have received a complete response
     while (1) {
         bytesReceived = recv(sockfd, buffer + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived, 0);
+
         if (bytesReceived <= 0) {
-            // Error or connection closed by the server
             if (bytesReceived < 0) {
                 log_error("Receive failed");
             }
             break;
         }
-        totalBytesReceived += bytesReceived;
-        buffer[totalBytesReceived] = '\0'; // Null-terminate the received data
 
+        totalBytesReceived += bytesReceived;
+        buffer[totalBytesReceived] = '\0';
+
+        // If handle_response returns success, all responses have been processed, so we break out of the loop.
         if (handle_response(buffer) == EXIT_SUCCESS) {
-            // Complete response received and handled, break out of the loop
             break;
         }
     }
