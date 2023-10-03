@@ -160,13 +160,11 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
 }
 
 // Receives the response from the server. The caller must provide a callback function to handle the response.
-#define INITIAL_BUFFER_SIZE 512
-
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     if (verbose_flag)
         log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
 
-    size_t bufferSize = INITIAL_BUFFER_SIZE;
+    size_t bufferSize = TCP_CLIENT_MAX_INPUT_SIZE;
     char *buf = malloc(bufferSize);
     if (!buf) {
         log_error("Memory allocation failed");
