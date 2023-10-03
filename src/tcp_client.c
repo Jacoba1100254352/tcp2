@@ -202,9 +202,6 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
         }
     }
 
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Message Received: %s", buf);
-
     return EXIT_SUCCESS;
 }
 
@@ -287,6 +284,10 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
     *message = strdup(*message);
 
     free(line);
+
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Action: %s, Message: %s", *action, *message);
+
     return EXIT_SUCCESS;
 }
 
