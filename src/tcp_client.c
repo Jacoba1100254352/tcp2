@@ -29,11 +29,11 @@ static void printHelpOption(char *argv[]) {
 int tcp_client_parse_arguments(int argc, char *argv[], Config *config) {
     int opt;
     static struct option long_options[] = {
-            {"help", no_argument, 0, 0},
-            {"host", required_argument, 0, 'h'},
-            {"port", required_argument, 0, 'p'},
-            {"verbose", no_argument, 0, 'v'},
-            {0, 0, 0, 0}
+            {"help",    no_argument,       0, 0},
+            {"host",    required_argument, 0, 'h'},
+            {"port",    required_argument, 0, 'p'},
+            {"verbose", no_argument,       0, 'v'},
+            {0, 0,                         0, 0}
     };
 
     int long_index = 0;
@@ -130,26 +130,26 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     char *buffer = malloc(bufferSize);
     buffer[0] = '\0';
 
-    while(1) {
+    while (1) {
         // Resize buffer if needed
-        if(numBytesInBuffer > bufferSize/2) {
+        if (numBytesInBuffer > bufferSize / 2) {
             bufferSize *= 2;
             buffer = realloc(buffer, bufferSize);
         }
 
         int numbytes = recv(sockfd, buffer + numBytesInBuffer, bufferSize - numBytesInBuffer - 1, 0);
-        if(numbytes <= 0) {
+        if (numbytes <= 0) {
             free(buffer);
             return (numbytes == 0) ? 0 : -1; // Return 0 if connection closed, -1 if error
         }
         numBytesInBuffer += numbytes;
         buffer[numBytesInBuffer] = '\0';
 
-        while((space_position = strchr(buffer, ' ')) && sscanf(buffer, "%zu", &messageLength) == 1) {
+        while ((space_position = strchr(buffer, ' ')) && sscanf(buffer, "%zu", &messageLength) == 1) {
             char *message_start = space_position + 1;
-            if(message_start + messageLength <= buffer + numBytesInBuffer) {
+            if (message_start + messageLength <= buffer + numBytesInBuffer) {
                 char *response_message = strndup(message_start, messageLength);
-                if(handle_response(response_message)) {
+                if (handle_response(response_message)) {
                     free(response_message);
                     free(buffer);
                     return 0; // All messages processed
