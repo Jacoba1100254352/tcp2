@@ -46,6 +46,7 @@ int tcp_client_parse_arguments(int argc, char *argv[], Config *config) {
                 config->host = optarg;
                 break;
             case 'p':  // Port
+            {
                 long port;
                 char *endptr;
                 port = strtol(optarg, &endptr, 10);
@@ -55,12 +56,13 @@ int tcp_client_parse_arguments(int argc, char *argv[], Config *config) {
                 }
                 config->port = optarg;
                 break;
-            case 'v':  // Verbosity
-                verbose_flag = 1;
+                case 'v':  // Verbosity
+                    verbose_flag = 1;
                 break;
-            default:
-                log_error("Invalid argument.");
+                default:
+                    log_error("Invalid argument.");
                 return EXIT_FAILURE;
+            }
         }
     }
 
