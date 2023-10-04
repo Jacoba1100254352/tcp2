@@ -72,6 +72,9 @@ int tcp_client_parse_arguments(int argc, char *argv[], Config *config) {
         return EXIT_FAILURE;
     }
 
+    if (verbose_flag)
+        log_info("Arguments parced");
+
     return EXIT_SUCCESS;
 }
 
@@ -104,6 +107,9 @@ int tcp_client_connect(Config config) {
         return TCP_CLIENT_BAD_SOCKET;
     }
 
+    if (verbose_flag)
+        log_info("Socket connected");
+
     return sockfd;
 }
 
@@ -116,6 +122,9 @@ int tcp_client_send_request(int sockfd, char *action, char *message) {
         log_error("Send failed.");
         return EXIT_FAILURE;
     }
+
+    if (verbose_flag)
+        log_info("Request sent");
 
     return EXIT_SUCCESS;
 }
@@ -130,7 +139,7 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
     char *buffer = malloc(bufferSize);
     buffer[0] = '\0';
 
-    while (1) {
+    while (true) {
         // Resize buffer if needed
         if (numBytesInBuffer > bufferSize / 2) {
             bufferSize *= 2;
@@ -174,6 +183,9 @@ int tcp_client_close(int sockfd) {
         return EXIT_FAILURE;
     }
 
+    if (verbose_flag)
+        log_info("Socket closed");
+
     return EXIT_SUCCESS;
 }
 
@@ -182,6 +194,10 @@ FILE *tcp_client_open_file(char *file_name) {
     FILE *fileData = fopen(file_name, "r");
     if (!fileData)
         log_error("File opening failed.");
+
+    if (verbose_flag)
+        log_info("File opened");
+
     return fileData;
 }
 
@@ -241,6 +257,9 @@ int tcp_client_close_file(FILE *fd) {
         log_error("File closure failed.");
         return EXIT_FAILURE;
     }
+
+    if (verbose_flag)
+        log_info("File Closed");
 
     return EXIT_SUCCESS;
 }

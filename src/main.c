@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (verbose_flag)
-        log_debug("Connected to %s:%s", config.host, config.port);
+        log_info("Connected to %s:%s", config.host, config.port);
 
     // Open the input file or use stdin
     FILE *fp = (strcmp(config.file, "-") == 0) ? stdin : tcp_client_open_file(config.file);
@@ -81,10 +81,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (tcp_client_close(sockfd) != EXIT_SUCCESS) {
-        exit(EXIT_FAILURE);
-    }
-
-    exit(EXIT_SUCCESS);
+    exit((tcp_client_close(sockfd) != EXIT_SUCCESS) ? EXIT_FAILURE : EXIT_SUCCESS);
 
 }
