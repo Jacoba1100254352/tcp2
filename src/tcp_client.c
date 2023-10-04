@@ -115,16 +115,26 @@ int tcp_client_connect(Config config) {
 
 // Creates and sends a request to the server using the socket and configuration.
 int tcp_client_send_request(int sockfd, char *action, char *message) {
-    char msg[strlen(action) + strlen(message) + 10];
-    snprintf(msg, sizeof(msg), "%s %lu %s", action, strlen(message), message);
+    size_t msgSize = strlen(action) + strlen(message) + 10;
+    char *msg = malloc(msgSize);
+    if (!msg) {
+        log_error("Memory allocation failed.");
+        return EXIT_FAILURE;
+    }
+    sprintf(msg, "%s %lu %s", action, strlen(message), message);
 
     if (send(sockfd, msg, strlen(msg), 0) == -1) {
         log_error("Send failed.");
+        // After sending the message, free the dynamically allocated memory
+        free(msg);
         return EXIT_FAILURE;
     }
 
     if (verbose_flag)
         log_info("Request sent");
+
+    // After sending the message, free the dynamically allocated memory
+    free(msg);
 
     return EXIT_SUCCESS;
 }
@@ -220,26 +230,37 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
         return EXIT_FAILURE;
 
     char *stringLine = NULL;
-    size_t readIn = 0;
+    size_t readIn = 0;  // Set to 0 for getline to allocate memory as required.
     ssize_t charCount = getline(&stringLine, &readIn, fd);
 
     if (charCount == -1) {
         log_warn("No line was read from file, program likely reached the end of the file.");
+        free(stringLine); // Safe to call even if getline failed
+        return EXIT_FAILURE;
+    }
+
+    // Remove newline character if present
+    if (charCount > 0)
+        stringLine[charCount - 1] = '\0';
+
+    log_trace("String read from the file is: %s", stringLine);
+
+    // Use a temporary buffer to parse the action and message
+    char temp_action[100]; // Assuming an action name will not exceed 100 characters.
+    char *temp_message = malloc(charCount * sizeof(char));
+    if (!temp_message) {
         free(stringLine);
         return EXIT_FAILURE;
     }
 
-    stringLine[charCount - 1] = '\0';  // Remove newline character if present
-    log_trace("String read from the file is: %s", stringLine);
+    int read = sscanf(stringLine, "%99s %[^\n]", temp_action, temp_message);
 
-    // We need to use a format specifier to limit the width to avoid buffer overflows.
-    // For now, I'll assume a max action length of 50 and max message length of the remaining string size.
-    *action = malloc(51 * sizeof(char));
-    *message = malloc((charCount - 50) * sizeof(char));
+    // Transfer pointers to caller
+    *action = strdup(temp_action);
+    *message = strdup(temp_message);
 
-    int read = sscanf(stringLine, "%50s %[^'\n']", *action, *message);
-
-    free(stringLine);  // Free the memory allocated by getline()
+    free(temp_message);
+    free(stringLine);
 
     if (read != 2 || is_valid_action(*action) == EXIT_FAILURE) {
         log_error("Invalid Action or message format provided.");
@@ -250,7 +271,6 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
 
     return EXIT_SUCCESS;
 }
-
 
 
 // Close a file
