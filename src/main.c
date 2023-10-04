@@ -68,12 +68,22 @@ int main(int argc, char *argv[]) {
     }
 
     if (verbose_flag)
-        log_info("Messages sent: %zu, received: %zu.", messages_sent, messages_received);
+        log_info("Messages sent: %zu, messages received: %zu.", messages_sent, messages_received);
 
-    // Close file if not stdin
     if (fp != stdin)
         tcp_client_close_file(fp);
 
-    // Receive responses and close connection
-    exit((tcp_client_receive_response(sockfd, handle_response) || tcp_client_close(sockfd)) ? EXIT_FAILURE : EXIT_SUCCESS);
+// Only attempt to receive if we sent messages
+    if (messages_sent > 0) {
+        if (tcp_client_receive_response(sockfd, handle_response) != EXIT_SUCCESS) {
+            tcp_client_close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (tcp_client_close(sockfd) != EXIT_SUCCESS) {
+        exit(EXIT_FAILURE);
+    }
+
+    exit(EXIT_SUCCESS);
 }
