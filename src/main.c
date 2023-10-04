@@ -2,26 +2,20 @@
 #include "log.h"
 #include <ctype.h>
 
-int verbose_flag = 0;  // Global variable for the verbose flag
+int verbose_flag = 0;  // Global flag for verbosity
 
-// Global counters for sent and received messages
+// Global counters for tracking communication
 static size_t messages_sent = 0;
 static size_t messages_received = 0;
 
-// Function to print usage instructions when --help is used or invalid arguments are provided
+// Function to print usage instructions
 static void printHelpOption(char *argv[]) {
     fprintf(stderr, "Usage: %s [--help] [-v] [-h HOST] [-p PORT] FILE\n"
-                    "\nArguments:\n"
-                    "  FILE   A file name containing actions and messages to\n"
-                    "         send to the server. If \"-\" is provided, stdin will\n"
-                    "         be read.\n"
-                    "\nOptions:\n"
-                    "  --help\n"
-                    "  -v, --verbose\n"
-                    "  --host HOSTNAME, -h HOSTNAME\n"
-                    "  --port PORT, -p PORT\n", argv[0]);
+                    "Arguments:\n  FILE: File with actions & messages for server (stdin with '-')\n"
+                    "Options: --help, -v/--verbose, --host/-h HOSTNAME, --port/-p PORT\n", argv[0]);
 }
 
+// Handler for server responses
 static int handle_response(char *response) {
     log_trace("%s\n", response);
     return (messages_sent > ++messages_received) ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -33,33 +27,35 @@ int main(int argc, char *argv[]) {
             .port = TCP_CLIENT_DEFAULT_PORT
     };
 
+    // Parse command-line arguments
     if (tcp_client_parse_arguments(argc, argv, &config)) {
         printHelpOption(argv);
         exit(EXIT_FAILURE);
     }
 
+    // Connect to server
     int sockfd = tcp_client_connect(config);
     if (sockfd == TCP_CLIENT_BAD_SOCKET) {
-        log_warn("Unable to connect to a socket, exiting program");
+        log_warn("Unable to connect to server.");
         exit(EXIT_FAILURE);
     }
 
     if (verbose_flag)
         log_debug("Connected to %s:%s", config.host, config.port);
 
-    FILE *fp;
-    if (strcmp(config.file, "-") == 0) {
-        fp = stdin;
-    } else if (!(fp = tcp_client_open_file(config.file))) {
-        log_error("There was an error trying to open the file.");
+    // Open the input file or use stdin
+    FILE *fp = (strcmp(config.file, "-") == 0) ? stdin : tcp_client_open_file(config.file);
+    if (!fp) {
+        log_error("Error opening file.");
         tcp_client_close(sockfd);
         return EXIT_FAILURE;
     }
 
-    char *action = NULL;
-    char *message = NULL;
+    // Read lines from file and send to server
+    char *action = NULL, *message = NULL;
     while (tcp_client_get_line(fp, &action, &message) == EXIT_SUCCESS) {
         if (tcp_client_send_request(sockfd, action, message) != EXIT_SUCCESS) {
+            // Cleanup on error
             free(action);
             free(message);
             if (fp != stdin) tcp_client_close_file(fp);
@@ -72,10 +68,12 @@ int main(int argc, char *argv[]) {
     }
 
     if (verbose_flag)
-        log_info("Messages sent: %zu, messages received: %zu.", messages_sent, messages_received);
+        log_info("Messages sent: %zu, received: %zu.", messages_sent, messages_received);
 
+    // Close file if not stdin
     if (fp != stdin)
         tcp_client_close_file(fp);
 
+    // Receive responses and close connection
     exit((tcp_client_receive_response(sockfd, handle_response) || tcp_client_close(sockfd)) ? EXIT_FAILURE : EXIT_SUCCESS);
 }

@@ -29,50 +29,44 @@ static void printHelpOption(char *argv[]) {
 int tcp_client_parse_arguments(int argc, char *argv[], Config *config) {
     int opt;
     static struct option long_options[] = {
-            {"help",    no_argument,       0, 0},
-            {"host",    required_argument, 0, 'h'},
-            {"port",    required_argument, 0, 'p'},
-            {"verbose", no_argument,       0, 'v'},
-            {0, 0,                         0, 0}
+            {"help", no_argument, 0, 0},
+            {"host", required_argument, 0, 'h'},
+            {"port", required_argument, 0, 'p'},
+            {"verbose", no_argument, 0, 'v'},
+            {0, 0, 0, 0}
     };
 
-    // Loop over all the options
     int long_index = 0;
     while ((opt = getopt_long(argc, argv, "h:p:v", long_options, &long_index)) != -1) {
         switch (opt) {
             case 0: // --help
                 printHelpOption(argv);
                 exit(EXIT_SUCCESS);
-            case 'h':  // --host or -h
+            case 'h':  // Host
                 config->host = optarg;
                 break;
-            case 'p':  // --port or -p
-            {
+            case 'p':  // Port
                 long port;
                 char *endptr;
                 port = strtol(optarg, &endptr, 10);
                 if (*endptr != '\0' || port <= 0 || port > 65535) {
-                    log_error("Invalid port number provided. Port must be a number between 1 and 65535.");
+                    log_error("Invalid port number.");
                     return EXIT_FAILURE;
                 }
                 config->port = optarg;
-            }
                 break;
-            case 'v':  // --verbose or -v
+            case 'v':  // Verbosity
                 verbose_flag = 1;
                 break;
-            default: // An unrecognized option
-                log_error("Invalid arguments provided.");
+            default:
+                log_error("Invalid argument.");
                 return EXIT_FAILURE;
         }
     }
 
-    // Update to parse file name instead of action and message
     if (optind < argc) config->file = argv[optind++];
-
-    // Check if file argument is provided
-    if (config->file == NULL) {
-        log_error("Required argument not provided. Need FILE.");
+    if (!config->file) {
+        log_error("File argument missing.");
         return EXIT_FAILURE;
     }
 
@@ -86,58 +80,38 @@ int tcp_client_connect(Config config) {
     struct sockaddr_in server_address;
     struct hostent *server;
 
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Connecting to %s:%s", config.host, config.port);
-
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-        log_log(LOG_ERROR, __FILE__, __LINE__, "Could not create socket");
+        log_error("Socket creation failed.");
         return TCP_CLIENT_BAD_SOCKET;
     }
 
     server = gethostbyname(config.host);
-    if (server == NULL) {
-        log_log(LOG_ERROR, __FILE__, __LINE__, "No such host");
+    if (!server) {
+        log_error("Host not found.");
         return TCP_CLIENT_BAD_SOCKET;
     }
 
     memset(&server_address, 0, sizeof(server_address));
     server_address.sin_family = AF_INET;
     memcpy(&server_address.sin_addr.s_addr, server->h_addr, server->h_length);
-
-    char *endptr; // Pointer to the end of the parsed string
-    long port = strtol(config.port, &endptr, 10); // Convert string to long integer
-
-    // Check if the entire string was parsed
-    if (*endptr != '\0' || port <= 0 || port > 65535) {
-        log_error("Invalid port number provided. Port must be a number between 1 and 65535.");
-        return TCP_CLIENT_BAD_SOCKET; // or some other error handling
-    }
-
-    server_address.sin_port = htons((uint16_t) port); // Convert to appropriate type and byte order
-
+    server_address.sin_port = htons((uint16_t) strtol(config.port, NULL, 10));
 
     if (connect(sockfd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
-        log_log(LOG_ERROR, __FILE__, __LINE__, "Could not connect");
+        log_error("Connection failed.");
         return TCP_CLIENT_BAD_SOCKET;
     }
 
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Connected to server!");
-
-    return sockfd;  // Return the socket descriptor
+    return sockfd;
 }
 
 // Creates and sends a request to the server using the socket and configuration.
 int tcp_client_send_request(int sockfd, char *action, char *message) {
-    char msg[strlen(action) + strlen(message) + 10];  // +10 accounts for space, message length, and null terminator
+    char msg[strlen(action) + strlen(message) + 10];
     sprintf(msg, "%s %lu %s", action, strlen(message), message);
 
-    if (verbose_flag)
-        log_debug("Message being sent to the server: %s", msg);
-
     if (send(sockfd, msg, strlen(msg), 0) == -1) {
-        log_error("Send failed");
+        log_error("Send failed.");
         return EXIT_FAILURE;
     }
 
@@ -191,20 +165,12 @@ int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
 }
 
 
-
-
-// Closes the given socket.
+// Close the socket
 int tcp_client_close(int sockfd) {
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Reached?");
-
     if (close(sockfd) < 0) {
-        log_error("Could not close socket");
+        log_error("Socket closure failed.");
         return EXIT_FAILURE;
     }
-
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Client socked closed");
 
     return EXIT_SUCCESS;
 }
@@ -212,29 +178,22 @@ int tcp_client_close(int sockfd) {
 // Opens a file.
 FILE *tcp_client_open_file(char *file_name) {
     FILE *fileData = fopen(file_name, "r");
-    if (fileData == NULL)
-        log_error("Could not open file");
-    else if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "File Opened");
-
+    if (!fileData)
+        log_error("File opening failed.");
     return fileData;
 }
 
 // Check if the provided action is valid
 static int is_valid_action(const char *action) {
-    static char *validActions[NUM_VALID_ACTIONS] = {
-            "uppercase",
-            "lowercase",
-            "reverse",
-            "shuffle",
-            "random"
+    static const char *validActions[NUM_VALID_ACTIONS] = {
+            "uppercase", "lowercase", "reverse", "shuffle", "random"
     };
 
     for (int i = 0; i < NUM_VALID_ACTIONS; i++)
         if (strcmp(action, validActions[i]) == 0)
-            return EXIT_SUCCESS; // True: Valid action
+            return EXIT_SUCCESS;
 
-    return EXIT_FAILURE; // False: Invalid action
+    return EXIT_FAILURE;
 }
 
 // Gets the next line of a file, filling in action and message.
@@ -274,16 +233,12 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
 }
 
 
-
-// Closes a file.
+// Close a file
 int tcp_client_close_file(FILE *fd) {
     if (fclose(fd) == EOF) {
-        log_error("Could not close file");
+        log_error("File closure failed.");
         return EXIT_FAILURE;
     }
-
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "File Closed");
 
     return EXIT_SUCCESS;
 }
