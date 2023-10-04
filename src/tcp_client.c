@@ -116,7 +116,7 @@ int tcp_client_connect(Config config) {
 // Creates and sends a request to the server using the socket and configuration.
 int tcp_client_send_request(int sockfd, char *action, char *message) {
     char msg[strlen(action) + strlen(message) + 10];
-    sprintf(msg, "%s %lu %s", action, strlen(message), message);
+    snprintf(msg, sizeof(msg), "%s %lu %s", action, strlen(message), message);
 
     if (send(sockfd, msg, strlen(msg), 0) == -1) {
         log_error("Send failed.");
@@ -219,24 +219,25 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
     if (fd == NULL || action == NULL || message == NULL)
         return EXIT_FAILURE;
 
-    *action = malloc(sizeof(char) * TCP_CLIENT_MAX_INPUT_SIZE);
-    *message = malloc(sizeof(char) * TCP_CLIENT_MAX_INPUT_SIZE);
-
     char *stringLine = NULL;
-    size_t readIn = TCP_CLIENT_MAX_INPUT_SIZE;
+    size_t readIn = 0;
     ssize_t charCount = getline(&stringLine, &readIn, fd);
 
     if (charCount == -1) {
         log_warn("No line was read from file, program likely reached the end of the file.");
-        free(*action);
-        free(*message);
+        free(stringLine);
         return EXIT_FAILURE;
     }
 
     stringLine[charCount - 1] = '\0';  // Remove newline character if present
     log_trace("String read from the file is: %s", stringLine);
 
-    int read = sscanf(stringLine, "%s %[^\n]", *action, *message);
+    // We need to use a format specifier to limit the width to avoid buffer overflows.
+    // For now, I'll assume a max action length of 50 and max message length of the remaining string size.
+    *action = malloc(51 * sizeof(char));
+    *message = malloc((charCount - 50) * sizeof(char));
+
+    int read = sscanf(stringLine, "%50s %[^'\n']", *action, *message);
 
     free(stringLine);  // Free the memory allocated by getline()
 
@@ -249,6 +250,7 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
 
     return EXIT_SUCCESS;
 }
+
 
 
 // Close a file
