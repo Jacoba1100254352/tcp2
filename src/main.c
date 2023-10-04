@@ -31,86 +31,53 @@ int handle_response(char *response) {
 }
 
 int main(int argc, char *argv[]) {
-    Config conf;
-    int socket;
+    Config config = {
+            .host = TCP_CLIENT_DEFAULT_HOST,
+            .port = TCP_CLIENT_DEFAULT_PORT
+    };
 
-    log_set_level(LOG_ERROR);
-
-    int result = tcp_client_parse_arguments(argc, argv, &conf);
-    if(result != 0) {
-        log_warn("Incorrect arguments provided");
+    if (tcp_client_parse_arguments(argc, argv, &config)) {
         printHelpOption(argv);
         exit(EXIT_FAILURE);
     }
 
-
-    log_info("host: %s, port: %s", conf.host, conf.port);
-
-
-    socket = tcp_client_connect(conf);
-    if(socket == -1) {
+    int sockfd = tcp_client_connect(config);
+    if (sockfd == TCP_CLIENT_BAD_SOCKET) {
         log_warn("Unable to connect to a socket, exiting program");
         exit(EXIT_FAILURE);
     }
-    else {
-        log_trace("Connection was established to the socket.");
-    }
 
-    // open the file that will be read from
-    FILE *f = tcp_client_open_file(conf.file);
-    log_info("Contents of file descriptor %d.", f);
+    if (verbose_flag)
+        log_log(LOG_DEBUG, __FILE__, __LINE__, "Connected to %s:%s", config.host, config.port);
 
-    //erorr checking on the file connection
-    if(f != NULL) {
-        log_trace("File was successfully opened.");
-    }
-    else {
+    FILE *fp;
+    if (strcmp(config.file, "-") == 0) {
+        fp = stdin;
+    } else if (!(fp = tcp_client_open_file(config.file))) {
         log_error("There was an error trying to open the file.");
+        tcp_client_close(sockfd);
+        return EXIT_FAILURE;
     }
 
-
-    char *action;
-    char *message;
-    ssize_t c;
-
-    // while there is data in the file to be sent,
-    // get data from the file and send it to the server
-    while((c = tcp_client_get_line(f, &action, &message)) != -1) {
-
-        log_trace("Attempting to send a new send message with action: %s, and message: %s.", action, message);
-        if(tcp_client_send_request(socket, action, message)) {
-            log_warn("Message was not sent successfully to the server");
-            exit(EXIT_FAILURE);
+    char *action = NULL;
+    char *message = NULL;
+    while (tcp_client_get_line(fp, &action, &message) == EXIT_SUCCESS) {
+        if (tcp_client_send_request(sockfd, action, message) != EXIT_SUCCESS) {
+            free(action);
+            free(message);
+            if (fp != stdin) tcp_client_close_file(fp);
+            tcp_client_close(sockfd);
+            return EXIT_FAILURE;
         }
-        else {
-            messages_sent++;
-        }
-    }
-    if((c == -1) && (messages_sent == 0)) {
-        log_warn("No messages were sent.");
+        messages_sent++;
+        free(action);
+        free(message);
     }
 
-    // while there are messages we've sent and have not received a response for,
-    // keep receiving from the server
-    log_info("Messages sent: %d, messages received: %d.", messages_sent, messages_received);
-    // int (*handle_pointer)(char *) = &handle_response;
-    tcp_client_receive_response(socket, handle_response);
+    log_info("Messages sent: %zu, messages received: %zu.", messages_sent, messages_received);
 
+    if (fp != stdin)
+        tcp_client_close_file(fp);
 
-
-    if(tcp_client_close_file(f)) {
-        log_error("There was a problem trying to close the file.");
-    }
-    else {
-        log_trace("File was closed successfully.");
-    }
-
-
-    if(tcp_client_close(socket)) {
-        log_warn("Unable to disconnect from the server");
-        exit(EXIT_FAILURE);
-    }
-
-    log_info("Program executed successfully");
-    exit(EXIT_SUCCESS);
+    exit((tcp_client_receive_response(sockfd, handle_response) || tcp_client_close(sockfd)) ? EXIT_FAILURE : EXIT_SUCCESS);
 }
