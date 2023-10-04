@@ -23,34 +23,11 @@ static void printHelpOption(char *argv[]) {
 }
 
 int handle_response(char *response) {
-    char *ptr = response;
-
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Response received: %s", response);
-
-    while (*ptr != '\0') {
-        char *endptr;
-        long len = strtol(ptr, &endptr, 10);
-        if (endptr == ptr || len < 0) {
-            fprintf(stderr, "Malformed response received: %s\n", ptr);
-            return EXIT_FAILURE;
-        }
-
-        ptr = endptr;
-        if (*ptr == '\0' || (size_t) len > strlen(ptr)) {
-            // We haven't received the full message for this length, so we need more data.
-            return EXIT_FAILURE;
-        }
-
-        printf("%.*s\n", (int) len, ptr);
-        ptr += len;
-    }
-
+    printf("%s\n", response);
     messages_received++;
-    if (messages_sent > messages_received) {
-        return 0;
-    }
-    return EXIT_SUCCESS;
+    if(messages_sent > messages_received)
+        return EXIT_SUCCESS;
+    else return EXIT_FAILURE;
 }
 
 int main(int argc, char *argv[]) {
