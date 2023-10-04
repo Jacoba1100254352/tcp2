@@ -74,16 +74,10 @@ int main(int argc, char *argv[]) {
         tcp_client_close_file(fp);
 
 // Only attempt to receive if we sent messages
-    if (messages_sent > 0) {
-        if (tcp_client_receive_response(sockfd, handle_response) != EXIT_SUCCESS) {
-            tcp_client_close(sockfd);
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    if (tcp_client_close(sockfd) != EXIT_SUCCESS) {
+    if (messages_sent > 0 && tcp_client_receive_response(sockfd, handle_response) != EXIT_SUCCESS) {
+        tcp_client_close(sockfd);
         exit(EXIT_FAILURE);
     }
 
-    exit(EXIT_SUCCESS);
+    exit((tcp_client_close(sockfd) != EXIT_SUCCESS) ? EXIT_FAILURE : EXIT_SUCCESS);
 }
