@@ -1,0 +1,5 @@
+uppercase hello world
+reverse this is a fun lab
+lowercase NETWORKING IS THE BEST!
+shuffle banana
+random GO BYU!
