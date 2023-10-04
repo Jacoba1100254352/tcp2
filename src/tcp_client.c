@@ -130,62 +130,67 @@ int tcp_client_connect(Config config) {
 
 // Creates and sends a request to the server using the socket and configuration.
 int tcp_client_send_request(int sockfd, char *action, char *message) {
-    // Initialize and display payload
-    char payload[TCP_CLIENT_MAX_INPUT_SIZE];
-    snprintf(payload, TCP_CLIENT_MAX_INPUT_SIZE, "%s %lu %s", action, strlen(message), message);
+    char msg[strlen(action) + strlen(message) + 10];  // +10 accounts for space, message length, and null terminator
+    sprintf(msg, "%s %lu %s", action, strlen(message), message);
 
-    // Inform of sending status
     if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Sending: %s %lu %s", action, strlen(message), message);
+        log_debug("Message being sent to the server: %s", msg);
 
-    //
-    int payloadLength = (int) strlen(payload);
-    ssize_t bytesSent, totalBytesSent = 0;
-
-    // Send bytes to the server until done
-    while (totalBytesSent < payloadLength) {
-        bytesSent = send(sockfd, payload + totalBytesSent, payloadLength - totalBytesSent, 0);
-        if (bytesSent == -1) {
-            log_error("Sent failed");
-            return EXIT_FAILURE;
-        }
-        totalBytesSent += bytesSent;
+    if (send(sockfd, msg, strlen(msg), 0) == -1) {
+        log_error("Send failed");
+        return EXIT_FAILURE;
     }
-
-    // Inform of bytes sent
-    if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Bytes sent: %lu (%lu/%lu)", strlen(message), strlen(message), strlen(message));
 
     return EXIT_SUCCESS;
 }
 
+
 // Receives the response from the server. The caller must provide a callback function to handle the response.
 int tcp_client_receive_response(int sockfd, int (*handle_response)(char *)) {
-    char buffer[TCP_CLIENT_MAX_INPUT_SIZE] = {0};
-    ssize_t totalBytesReceived = 0;
-    ssize_t bytesReceived;
+    char *space_position = NULL;
+    size_t numBytesInBuffer = 0;
+    size_t messageLength = 0;
+    unsigned bufferSize = TCP_CLIENT_MAX_INPUT_SIZE;
+    char *buffer = malloc(bufferSize);
+    buffer[0] = '\0';
 
-    while (1) {
-        bytesReceived = recv(sockfd, buffer + totalBytesReceived, TCP_CLIENT_MAX_INPUT_SIZE - totalBytesReceived, 0);
-
-        if (bytesReceived <= 0) {
-            if (bytesReceived < 0) {
-                log_error("Receive failed");
-            }
-            break;
+    while(1) {
+        // Resize buffer if needed
+        if(numBytesInBuffer > bufferSize/2) {
+            bufferSize *= 2;
+            buffer = realloc(buffer, bufferSize);
         }
 
-        totalBytesReceived += bytesReceived;
-        buffer[totalBytesReceived] = '\0';
+        int numbytes = recv(sockfd, buffer + numBytesInBuffer, bufferSize - numBytesInBuffer - 1, 0);
+        if(numbytes <= 0) {
+            free(buffer);
+            return (numbytes == 0) ? 0 : -1; // Return 0 if connection closed, -1 if error
+        }
+        numBytesInBuffer += numbytes;
+        buffer[numBytesInBuffer] = '\0';
 
-        // If handle_response returns success, all responses have been processed, so we break out of the loop.
-        if (handle_response(buffer) == EXIT_SUCCESS) {
-            break;
+        while((space_position = strchr(buffer, ' ')) && sscanf(buffer, "%zu", &messageLength) == 1) {
+            char *message_start = space_position + 1;
+            if(message_start + messageLength <= buffer + numBytesInBuffer) {
+                char *response_message = strndup(message_start, messageLength);
+                if(handle_response(response_message)) {
+                    free(response_message);
+                    free(buffer);
+                    return 0; // All messages processed
+                }
+                free(response_message);
+
+                // Adjust buffer
+                numBytesInBuffer -= (message_start + messageLength - buffer);
+                memmove(buffer, message_start + messageLength, numBytesInBuffer);
+            } else {
+                break;  // Not enough data for a full message, wait for more
+            }
         }
     }
-
-    return (bytesReceived < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
+
+
 
 
 // Closes the given socket.
@@ -237,38 +242,37 @@ int tcp_client_get_line(FILE *fd, char **action, char **message) {
     if (fd == NULL || action == NULL || message == NULL)
         return EXIT_FAILURE;
 
-    char *line = NULL;
-    size_t len = 0;
+    *action = malloc(sizeof(char) * TCP_CLIENT_MAX_INPUT_SIZE);
+    *message = malloc(sizeof(char) * TCP_CLIENT_MAX_INPUT_SIZE);
 
-    if (getline(&line, &len, fd) == -1) {
-        free(line);
+    char *stringLine = NULL;
+    size_t readIn = TCP_CLIENT_MAX_INPUT_SIZE;
+    ssize_t charCount = getline(&stringLine, &readIn, fd);
+
+    if (charCount == -1) {
+        log_warn("No line was read from file, program likely reached the end of the file.");
+        free(*action);
+        free(*message);
         return EXIT_FAILURE;
     }
 
-    *action = strtok(line, " ");
+    stringLine[charCount - 1] = '\0';  // Remove newline character if present
+    log_trace("String read from the file is: %s", stringLine);
 
-    if (is_valid_action(*action) == EXIT_FAILURE) {
-        log_error("Invalid Action provided: %s", *action);
-        free(line);
+    int read = sscanf(stringLine, "%s %[^\n]", *action, *message);
+
+    free(stringLine);  // Free the memory allocated by getline()
+
+    if (read != 2 || is_valid_action(*action) == EXIT_FAILURE) {
+        log_error("Invalid Action or message format provided.");
+        free(*action);
+        free(*message);
         return EXIT_FAILURE;
     }
-
-    *message = strtok(NULL, "\n");
-
-    // Skip malformed lines
-    if (*action == NULL || *message == NULL) {
-        free(line);
-        return EXIT_FAILURE;
-    }
-
-    // Duplicate the strings since we will free the line
-    *action = strdup(*action);
-    *message = strdup(*message);
-
-    free(line);
 
     return EXIT_SUCCESS;
 }
+
 
 
 // Closes a file.
