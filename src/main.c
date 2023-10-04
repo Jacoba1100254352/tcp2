@@ -22,12 +22,9 @@ static void printHelpOption(char *argv[]) {
                     "  --port PORT, -p PORT\n", argv[0]);
 }
 
-int handle_response(char *response) {
-    printf("%s\n", response);
-    messages_received++;
-    if(messages_sent > messages_received)
-        return EXIT_SUCCESS;
-    else return EXIT_FAILURE;
+static int handle_response(char *response) {
+    log_trace("%s\n", response);
+    return (messages_sent > ++messages_received) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 int main(int argc, char *argv[]) {
@@ -48,7 +45,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (verbose_flag)
-        log_log(LOG_DEBUG, __FILE__, __LINE__, "Connected to %s:%s", config.host, config.port);
+        log_debug("Connected to %s:%s", config.host, config.port);
 
     FILE *fp;
     if (strcmp(config.file, "-") == 0) {
@@ -74,7 +71,8 @@ int main(int argc, char *argv[]) {
         free(message);
     }
 
-    log_info("Messages sent: %zu, messages received: %zu.", messages_sent, messages_received);
+    if (verbose_flag)
+        log_info("Messages sent: %zu, messages received: %zu.", messages_sent, messages_received);
 
     if (fp != stdin)
         tcp_client_close_file(fp);
